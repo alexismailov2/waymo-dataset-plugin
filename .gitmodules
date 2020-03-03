@@ -1,0 +1,6 @@
+[submodule "third-party/glm"]
+	path = third-party/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "third-party/waymo-open-dataset"]
+	path = third-party/waymo-open-dataset
+	url = https://github.com/waymo-research/waymo-open-dataset.git
