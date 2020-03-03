@@ -4,3 +4,6 @@
 [submodule "third-party/waymo-open-dataset"]
 	path = third-party/waymo-open-dataset
 	url = https://github.com/waymo-research/waymo-open-dataset.git
+[submodule "third-party/protobuf"]
+	path = third-party/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git

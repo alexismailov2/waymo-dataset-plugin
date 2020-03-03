@@ -1,112 +1,143 @@
 #include <WaymoDataset.hpp>
 
+#include "TFRecordDataset.hpp"
+
 #include <glm/glm.hpp>
+#include <waymo_open_dataset/dataset.pb.h>
 
 #include <functional>
 #include <vector>
 
 namespace {
-  void parseTFRecordDataset(std::string const& filePath, std::function<void(int offset, uint64_t size)>&& newRecord)
-  {
-    auto file = std::ifstream(filePath, std::ios::binary);
-
-    file.seekg(0, std::ios::end);
-    auto fileLength = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    while(fileLength >= 8)
+    auto extractImageAndBoundingBox(std::vector<char> const& data) -> WaymoDataset::Item
     {
-      uint64_t length{};
-      file.read((char*)&length, sizeof(uint64_t));
-      if (fileLength >= length + 4 + 4)
-      {
-        uint32_t masked_crc32_of_length{};
-        file.read((char*)&masked_crc32_of_length, sizeof(uint32_t));
+        static auto frameCounter = 0;
+        WaymoDataset::Item datasetItem{};
 
-        newRecord(file.tellg(), length);
-        file.seekg(length, std::ios::cur);
+        datasetItem.frameId = frameCounter;
 
-        uint32_t masked_crc32_of_data{};
-        file.read((char*)&masked_crc32_of_data, sizeof(uint32_t));
-      }
-      fileLength -= length + 4 + 4 + 8;
+        waymo::open_dataset::Frame frame;
+        frame.ParseFromArray(data.data(), data.size());
+#if 0 // Not needed for now
+        if (frame.has_context())
+        {
+            auto const& context = frame.context();
+            if (context.has_name())
+            {
+                std::cout << "name: " << context.name() << std::endl;
+            }
+            for (auto const& cameraCalibration : context.camera_calibrations())
+            {
+
+            }
+            for (auto const& laserCalibration : context.laser_calibrations())
+            {
+
+            }
+            if (context.has_stats())
+            {
+                auto contextStats = context.stats();
+            }
+        }
+        if (frame.has_timestamp_micros())
+        {
+            auto timestamp_micros = frame.timestamp_micros();
+            std::cout << "timestamp_micros: " << timestamp_micros << std::endl;
+        }
+        if (frame.has_pose())
+        {
+            // Vechicle pose
+        }
+#endif
+        auto frameCameraLabelsIt = frame.camera_labels().cbegin();
+        auto frameImagesIt = frame.images().cbegin();
+        while ((frameImagesIt != frame.images().cend()) &&
+               (frameCameraLabelsIt != frame.camera_labels().cend()))
+        {
+            if (frameImagesIt->has_name() && (frameImagesIt->name() == waymo::open_dataset::CameraName_Name_FRONT) &&
+                frameImagesIt->has_image() &&
+                frameCameraLabelsIt->has_name() && (frameCameraLabelsIt->name() ==  waymo::open_dataset::CameraName_Name_FRONT))
+            {
+                //if (frame.has_context() && frame.context().has_name() && (cameraName == "FRONT"))
+                //{
+                datasetItem.imageData = frameImagesIt->image();
+                //auto imageFile = std::ofstream{std::string("FRONT/") + frame.context().name() + "_" + std::to_string(frameCounter) + "_" + ".jpg", std::ios::binary};
+                //imageFile.write(frameImage.image().data(), frameImage.image().size());
+                //}
+                for(auto const& label : frameCameraLabelsIt->labels())
+                {
+                    if (label.has_box() && label.has_type())
+                    {
+                        auto const& box = label.box();
+                        if (!box.has_center_x() || !box.has_center_y() || /*!box.has_center_z() ||*/
+                            !box.has_width() || !box.has_length() || /*!box.has_height()*/
+                            (box.length() < 32) || (box.width() < 32))
+                        {
+                            continue;
+                        }
+                        auto classIndex = 0;
+                        switch(label.type())
+                        {
+                            case waymo::open_dataset::Label_Type_TYPE_VEHICLE:
+                                classIndex = 1;
+                                break;
+                            case waymo::open_dataset::Label_Type_TYPE_PEDESTRIAN:
+                                classIndex = 0;
+                                break;
+                            case waymo::open_dataset::Label_Type_TYPE_SIGN:
+                                classIndex = 2;
+                                break;
+                            case waymo::open_dataset::Label_Type_TYPE_CYCLIST:
+                                classIndex = 3;
+                                break;
+                            case waymo::open_dataset::Label_Type_TYPE_UNKNOWN:
+                                classIndex = 4;
+                            default:
+                                break;
+                        }
+                        datasetItem.boxes.push_back({classIndex, box.center_x(), box.center_y(), box.length(), box.width()});
+                    }
+                }
+                //excludeIfSomeBoxIntersectedWithAnotherMoreThan2Div3(dataset.back().boxes);
+//                auto annotationFile = std::ofstream{std::string("FRONT/") + frame.context().name() + "_" + std::to_string(frameCounter) + "_" + ".txt"};
+//                for (auto const& boundingBox : boundingBoxes)
+//                {
+//                    annotationFile << boundingBox.classIndex << " "
+//                                   << boundingBox.center_x/1920.0 << " "
+//                                   << boundingBox.center_y/1280.0 << " "
+//                                   << boundingBox.width/1920.0 << " "
+//                                   << boundingBox.height/1280.0 << std::endl;
+//                }
+            }
+            ++frameImagesIt;
+            ++frameCameraLabelsIt;
+        }
+        frameCounter++;
+        return datasetItem;
     }
-  }
 } /// end namespace anonymous
-
-//WaymoDataset::TFRecordParser::TFRecordParser(std::string const &filePath)
-//    : _file{filePath, std::ios::binary}
-//{
-//  _file.seekg(0, std::ios::end);
-//  _fileLength = _file.tellg();
-//  _fileLengthLeft = _fileLength;
-//  _file.seekg(0, std::ios::beg);
-//}
-//
-//bool WaymoDataset::TFRecordParser::Next(size_t index)
-//{
-//  while((_fileLengthLeft >= 8) && (index-- > 0))
-//  {
-//    uint64_t length{};
-//    _file.read((char*)&length, sizeof(uint64_t));
-//    if (_fileLengthLeft >= length + 4 + 4)
-//    {
-//      uint32_t masked_crc32_of_length{};
-//      _file.read((char*)&masked_crc32_of_length, sizeof(uint32_t));
-//
-//      if (index)
-//      {
-//        _file.seekg(length, std::ios::cur);
-//      }
-//      else
-//      {
-//        _data.resize(length);
-//        _file.read(_data.data(), length);
-//      }
-//
-//      uint32_t masked_crc32_of_data{};
-//      _file.read((char*)&masked_crc32_of_data, sizeof(uint32_t));
-//    }
-//    _fileLengthLeft -= length + 4 + 4 + 8;
-//  }
-//}
-//
-//void WaymoDataset::TFRecordParser::Reset()
-//{
-//  _file.seekg(0, std::ios::beg);
-//  _fileLengthLeft = _fileLength;
-//  _data.clear();
-//}
-//
-//auto WaymoDataset::TFRecordParser::GetCurrentRecord() const -> std::vector<char> const&
-//{
-//  return _data;
-//}
 
 class WaymoDataset::Impl
 {
   public:
     Impl(std::string const &filePath)
-      : _filePath{filePath}
+      : _tfRecordDataset{filePath}
     {
-      parseTFRecordDataset(filePath, [&](int offset, uint64_t size) {
-        _indexes.push_back(std::make_pair(offset, size));
-      });
+        for(auto const& item : _tfRecordDataset)
+        {
+            _dataset.push_back(extractImageAndBoundingBox(item));
+        }
     }
 
-    auto begin() const -> const_iterator const
+    auto Get() -> std::vector<Item> const&
     {
-      return const_iterator(_indexes, 0, _filePath);
-    }
-
-    auto end() const -> const_iterator const
-    {
-      return const_iterator(_indexes, _indexes.size(), _filePath);
+        return _dataset;
     }
 
   private:
     std::string _filePath;
-    std::vector<std::pair<int, uint64_t>> _indexes;
+    TFRecordDataset _tfRecordDataset;
+    std::vector<Item> _dataset;
 };
 
 WaymoDataset::WaymoDataset(std::string const &filePath)
@@ -114,22 +145,7 @@ WaymoDataset::WaymoDataset(std::string const &filePath)
 {
 }
 
-auto WaymoDataset::begin() const -> const WaymoDataset::const_iterator
+auto WaymoDataset::Get() const -> std::vector<Item> const&
 {
-  return _impl->begin();
-}
-
-auto WaymoDataset::end() const -> const WaymoDataset::const_iterator
-{
-  return _impl->end();
-}
-
-auto WaymoDataset::cbegin() const -> const WaymoDataset::const_iterator
-{
-  return _impl->begin();
-}
-
-auto WaymoDataset::cend() const -> const WaymoDataset::const_iterator
-{
-  return _impl->end();
+  return _impl->Get();
 }
