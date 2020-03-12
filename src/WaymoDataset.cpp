@@ -2,7 +2,6 @@
 
 #include "TFRecordDataset.hpp"
 
-#include <glm/glm.hpp>
 #include <waymo_open_dataset/dataset.pb.h>
 
 #include <functional>
@@ -148,4 +147,14 @@ WaymoDataset::WaymoDataset(std::string const &filePath)
 auto WaymoDataset::Get() const -> std::vector<Item> const&
 {
   return _impl->Get();
+}
+
+void WaymoDataset::Filter(std::vector<WaymoDataset::Item>& dataset, std::function<bool(WaymoDataset::Item::Box::List const&, WaymoDataset::Item::Box const&)> const& filter)
+{
+   dataset.erase(std::remove_if(dataset.begin(), dataset.end(), [&](auto& item) {
+      item.boxes.erase(std::remove_if(item.boxes.begin(), item.boxes.end(), [&](auto& box) {
+         return filter(item.boxes, box);
+      }), item.boxes.end());
+      return item.boxes.empty();
+   }), dataset.end());
 }
