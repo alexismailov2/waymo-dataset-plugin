@@ -45,6 +45,7 @@ add_subdirectory(third-party/glm)
 include_directories(
    include
    third-party/glm
+   third-party/
    ${CMAKE_CURRENT_BINARY_DIR}
    ${CMAKE_CURRENT_BINARY_DIR}/protobuf/include)
 

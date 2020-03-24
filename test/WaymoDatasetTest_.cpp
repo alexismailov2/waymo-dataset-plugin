@@ -5,6 +5,8 @@
 #include <experimental/filesystem>
 #include <iomanip>
 #include <iostream>
+#include <cmath>
+#include <sstream>
 
 auto intersection(WaymoDataset::Item::Box const& r1, WaymoDataset::Item::Box const& r2) -> WaymoDataset::Item::Box
 {
@@ -20,8 +22,8 @@ auto intersection(WaymoDataset::Item::Box const& r1, WaymoDataset::Item::Box con
     }
     else
     {
-        result.width   = std::abs(xmin - xmax);
-        result.height  = std::abs(ymin - ymax);
+        result.width   = std::fabs(xmin - xmax);
+        result.height  = std::fabs(ymin - ymax);
         result.centerX = xmax + result.width/2;
         result.centerY = ymin - result.height/2;
     }
