@@ -40,6 +40,7 @@ int main(int argc, char* argv[])
         }
         auto tfrecord = std::string{argv[1]};
         auto waymoDataset = WaymoDataset(tfrecord).Get();
+/*
         WaymoDataset::Filter(waymoDataset, [](WaymoDataset::Item::Box::List const& boxes, WaymoDataset::Item::Box const& box) {
             WaymoDataset::Item::Box intersected{};
             for (auto const& item : boxes)
@@ -57,6 +58,7 @@ int main(int argc, char* argv[])
             bool neededToBeRemoved = (box.width < 32) || (box.height < 32) || (((box.width * box.height) * 1.0 / 3.0) <= (intersected.width * intersected.height));
             return neededToBeRemoved;
         });
+        */
         auto outputDirectory = std::string((argc == 3) ? argv[2] : std::string(argv[1]).substr(0, std::strlen(argv[1]) - 9));
         if (!std::experimental::filesystem::create_directory(outputDirectory))
         {
