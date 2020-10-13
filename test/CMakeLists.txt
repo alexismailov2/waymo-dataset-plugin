@@ -13,3 +13,10 @@ add_executable(wider-person-dataset-test
 target_link_libraries(wider-person-dataset-test
    waymo-dataset
    stdc++fs)
+
+add_executable(audi-electronics-venture-dataset-test
+   AudiElectronicsVentureDatasetTest.cpp)
+
+target_link_libraries(audi-electronics-venture-dataset-test
+   waymo-dataset
+   stdc++fs)
